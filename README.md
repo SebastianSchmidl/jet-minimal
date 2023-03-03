@@ -9,6 +9,8 @@ python setup.py install
 
 ## Usage
 
+_JET_ is a _Scikit-Learn_ `BaseEstimator` with `ClusterMixin` class. It has a `fit_predict` function that expects a list of time series (`List[np.ndarray]`) that will be clustered. The available time series distance measures are _Shape Based Distance_, _Move Split Merge_, and _Dynamic Time Warping_. These measure can handle only univariate time series. Therefore, JET can handle only univariate time series, too. 
+
 ```python
 import numpy as np
 from jet import JET, JETMetric
