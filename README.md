@@ -1,2 +1,2 @@
-# jet
-Jaunty Estimation of Hierarchical Time Series Clustering
+# JET
+> **J**aunty **E**stimation of Hierarchical **T**ime Series Clustering
