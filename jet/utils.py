@@ -2,7 +2,6 @@ import numpy as np
 from typing import List, Union, Optional, Any, Generator
 from numba import njit
 from scipy.signal import correlate
-from timeeval.utils.tqdm_joblib import tqdm_joblib
 from tqdm import tqdm
 from joblib import Parallel, delayed
 from tslearn.metrics import dtw
