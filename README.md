@@ -38,6 +38,10 @@ dendrogram(jet._ward_clustering._linkage_matrix)
 plt.show()
 ```
 
+## Experiments
+
+Code for the experiments was created with [Tidewater](https://github.com/HPI-Information-Systems/tidewater) and is described in the [README](https://github.com/HPI-Information-Systems/tidewater#paper-experiments).
+
 ## Reference
 
 > tbd
