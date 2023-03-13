@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+from enum import Enum
 import numpy as np
-from typing import List, Union, Optional, Any, Generator
+from typing import Callable, List, Type, Union, Optional, Any, Generator
 from numba import njit
 from scipy.signal import correlate
 from tqdm import tqdm
@@ -10,9 +13,44 @@ from joblib.parallel import BatchCompletionCallBack
 import joblib
 
 
+DistanceMeasureFunctionType = Callable[[np.ndarray, np.ndarray, Optional[Any]], float]
+
+
+class staticproperty(staticmethod):
+    def __get__(self, *args):
+        return self.__func__()
+
+
+class JETMetric:
+    def __init__(self, distance_measure: Type[DistanceMeasureFunctionType]) -> None:
+        self.distance_measure = distance_measure
+
+    def __call__(self, series_a: np.ndarray, series_b: np.ndarray, **kwargs) -> float:
+        return self.distance_measure(series_a, series_b, **kwargs)
+
+    @staticproperty
+    def SHAPE_BASED_DISTANCE() -> JETMetric:
+        return JETMetric(shape_based_distance)
+
+    @staticproperty
+    def DTW() -> JETMetric:
+        return JETMetric(dtw)
+
+    @staticproperty
+    def MSM() -> JETMetric:
+        return JETMetric(move_split_merge)
+
+
 def shape_based_distance(x: np.ndarray, y: np.ndarray) -> float:
-    """Calculate the shape-based distance between two time series.""" 
-    return abs(float(1 - np.max(correlate(x, y, method="fft") / np.sqrt(np.dot(x, x) * np.dot(y, y)))))
+    """Calculate the shape-based distance between two time series."""
+    return abs(
+        float(
+            1
+            - np.max(
+                correlate(x, y, method="fft") / np.sqrt(np.dot(x, x) * np.dot(y, y))
+            )
+        )
+    )
 
 
 @njit
@@ -23,7 +61,9 @@ def c(x_i: float, x_i_1: float, y_j: float, constant: float) -> float:
 
 
 @njit
-def move_split_merge(x: np.ndarray, y: np.ndarray, constant: Optional[float] = 0.5) -> float:
+def move_split_merge(
+    x: np.ndarray, y: np.ndarray, constant: Optional[float] = 0.5
+) -> float:
     constant = constant or 0.5
     m = x.shape[0]
     n = y.shape[0]
@@ -82,14 +122,26 @@ def tqdm_joblib(tqdm_object: tqdm) -> Generator[tqdm, None, None]:
         tqdm_object.close()
 
 
-
-def z_matrix(series: Union[np.ndarray, List[np.ndarray]], n_jobs: int = 1, verbose: bool = False, metric: str = "shape_based_distance", c: float = 700) -> np.ndarray:
-    if metric == "msm":
-        f = lambda x, y: move_split_merge(x, y, c)
-    elif metric == "shape_based_distance":
-        f = shape_based_distance
-    else:  # if metric == "dtw":
-        f = dtw
+def z_matrix(
+    series: Union[np.ndarray, List[np.ndarray]],
+    n_jobs: int = 1,
+    verbose: bool = False,
+    metric: Union[str, JETMetric] = "shape_based_distance",
+    c: float = 700,
+) -> np.ndarray:
+    if isinstance(metric, JETMetric):
+        f = metric
+    elif isinstance(metric, str):
+        if metric == "msm":
+            f = lambda x, y: JETMetric.MSM(x, y, constant=c)
+        elif metric == "shape_based_distance":
+            f = JETMetric.SHAPE_BASED_DISTANCE
+        elif metric == "dtw":
+            f = JETMetric.DTW
+        else:
+            raise ValueError(f"Unknown metric {metric}")
+    else:
+        raise ValueError(f"Unknown metric {metric}")
 
     with tqdm_joblib(
         tqdm(total=((len(series) ** 2) - len(series)) / 2, disable=not verbose)
@@ -102,7 +154,13 @@ def z_matrix(series: Union[np.ndarray, List[np.ndarray]], n_jobs: int = 1, verbo
     return np.array(z).flatten()
 
 
-def matrix(series: Union[np.ndarray, List[np.ndarray]], n_jobs: int = 1, verbose: bool = False, metric: str = "shape_based_distance", c: float = 700) -> np.ndarray:
+def matrix(
+    series: Union[np.ndarray, List[np.ndarray]],
+    n_jobs: int = 1,
+    verbose: bool = False,
+    metric: Union[str, JETMetric] = "shape_based_distance",
+    c: float = 700,
+) -> np.ndarray:
     len_s = len(series)
     z = z_matrix(series, n_jobs=n_jobs, verbose=verbose, metric=metric, c=c)
     distance_matrix = np.zeros((len_s, len_s))

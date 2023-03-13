@@ -14,13 +14,13 @@ class WardClustering(BaseEstimator, ClusterMixin):
         self.n_clusters = n_clusters
         self.n_jobs = n_jobs
         self.verbose = verbose
-    
+
     def fit(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> WardClustering:
         self._linkage_matrix = ward(X)
         return self
-    
+
     def predict(self, X: Optional[Any] = None) -> np.ndarray:
         return cut_tree(self._linkage_matrix, n_clusters=self.n_clusters).flatten()
-    
+
     def fit_predict(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> np.ndarray:
         return self.fit(X).predict(X)

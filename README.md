@@ -26,8 +26,8 @@ jet = JET(
     n_pre_clusters=None,                        # number of pre-clusters to find: $c_{pre}$ in paper; default is $3\sqrt{n}$ (3*np.sqrt(len(X))) if None is set
     n_jobs=1,                                   # number of parallel jobs
     verbose=False,                              # output status messages
-    metric=JETMetric.SHAPE_BASED_DISTANCE,      # distance metric for time series distances; Options: SHAPE_BASED_DISTANCE, MSM, DTW
-    c: float = 700                              # cost parameter for MSM distance metric
+    metric=JETMetric.SHAPE_BASED_DISTANCE,      # distance metric for time series distances; Options: SHAPE_BASED_DISTANCE, MSM, DTW, or custom
+    c = 700                                     # cost parameter for MSM distance metric
 )
 
 # returns cluster label for each time series
@@ -36,6 +36,25 @@ labels = jet.fit_predict(list_of_time_series)
 # plot the dendrogram
 dendrogram(jet._ward_clustering._linkage_matrix)
 plt.show()
+```
+
+### Bring Your Own Distance Measure
+
+You can define your own distance measure function as shown below. (This enables you to cluster also multivariate time series if you have a suitable measure!)
+
+```python
+import numpy as np
+from jet import JET, JETMetric
+
+def custom_distance_measure(x: np.ndarray, y: np.ndarray) -> float:
+    min_len = min(len(x), len(y))
+    distance = np.power(x[:min_len] - y[:min_len], 2)
+    return distance
+
+jet = JET(
+    n_clusters=10,
+    metric=JETMetric(custom_distance_measure)
+)
 ```
 
 ## Experiments
