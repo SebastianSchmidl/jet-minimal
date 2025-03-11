@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import List, Optional, Any
+from typing import Optional, Any
 import numpy as np
-import pandas as pd
 from sklearn.base import BaseEstimator, ClusterMixin
 from scipy.cluster.hierarchy import cut_tree, ward
 

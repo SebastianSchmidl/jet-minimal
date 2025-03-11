@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Optional
 import numpy as np
-import pandas as pd
 from sklearn.base import BaseEstimator, ClusterMixin
 from sklearn.cluster import Birch
 

@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
 import numpy as np
-from typing import Callable, List, Type, Union, Optional, Any, Generator
-from numba import njit
+from typing import Callable, List, Type, Union, Optional, Any
+
 from scipy.signal import correlate
-from tqdm import tqdm
 from joblib import Parallel, delayed
-from tslearn.metrics import dtw
-import contextlib
-from joblib.parallel import BatchCompletionCallBack
-import joblib
+from ._dtw import dtw_distance
 
 
 DistanceMeasureFunctionType = Callable[[np.ndarray, np.ndarray, Optional[Any]], float]
@@ -34,7 +29,7 @@ class JETMetric:
 
     @staticproperty
     def DTW() -> JETMetric:
-        return JETMetric(dtw)
+        return JETMetric(dtw_distance)
 
     @staticproperty
     def MSM() -> JETMetric:
@@ -53,14 +48,12 @@ def shape_based_distance(x: np.ndarray, y: np.ndarray) -> float:
     )
 
 
-@njit
 def c(x_i: float, x_i_1: float, y_j: float, constant: float) -> float:
     if (x_i_1 <= x_i and x_i <= y_j) or (x_i_1 >= x_i and x_i >= y_j):
         return constant
     return float(constant + min(np.abs(x_i - x_i_1), np.abs(x_i - y_j)))
 
 
-@njit
 def move_split_merge(
     x: np.ndarray, y: np.ndarray, constant: Optional[float] = 0.5
 ) -> float:
@@ -87,41 +80,6 @@ def move_split_merge(
     return float(cost[m - 1, n - 1])
 
 
-@contextlib.contextmanager
-def tqdm_joblib(tqdm_object: tqdm) -> Generator[tqdm, None, None]:
-    """Context manager to patch joblib to report into tqdm progress bar given as argument.
-
-    Directly taken from https://stackoverflow.com/a/58936697.
-
-    Examples
-    --------
-    >>> import time
-    >>> from joblib import Parallel, delayed
-    >>>
-    >>> def some_method(wait_time):
-    >>>     time.sleep(wait_time)
-    >>>
-    >>> with tqdm_joblib(tqdm(desc="Sleeping method", total=10)):
-    >>>     Parallel(n_jobs=2)(delayed(some_method)(0.2) for i in range(10))
-    """
-
-    class TqdmBatchCompletionCallback(BatchCompletionCallBack):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
-        def __call__(self, *args, **kwargs):
-            tqdm_object.update(n=self.batch_size)
-            return super().__call__(*args, **kwargs)
-
-    old_batch_callback = joblib.parallel.BatchCompletionCallBack
-    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
-    try:
-        yield tqdm_object
-    finally:
-        joblib.parallel.BatchCompletionCallBack = old_batch_callback
-        tqdm_object.close()
-
-
 def z_matrix(
     series: Union[np.ndarray, List[np.ndarray]],
     n_jobs: int = 1,
@@ -143,14 +101,11 @@ def z_matrix(
     else:
         raise ValueError(f"Unknown metric {metric}")
 
-    with tqdm_joblib(
-        tqdm(total=((len(series) ** 2) - len(series)) / 2, disable=not verbose)
-    ):
-        z = Parallel(n_jobs=n_jobs)(
-            delayed(f)(series[i], series[j])  # only 1d metrics so far
-            for i in range(len(series) - 1)
-            for j in range(i + 1, len(series))
-        )
+    z = Parallel(n_jobs=n_jobs)(
+        delayed(f)(series[i], series[j])  # only 1d metrics so far
+        for i in range(len(series) - 1)
+        for j in range(i + 1, len(series))
+    )
     return np.array(z).flatten()
 
 
